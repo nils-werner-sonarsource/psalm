@@ -280,7 +280,7 @@ class ExistingAtomicStaticCallAnalyzer
                 } elseif ($context->mutation_free && !$method_storage->mutation_free) {
                     if (IssueBuffer::accepts(
                         new ImpureMethodCall(
-                            'Cannot call an possibly-mutating method from a mutation-free context',
+                            'Cannot call a possibly-mutating method from a mutation-free context',
                             new CodeLocation($statements_analyzer, $stmt_name)
                         ),
                         $statements_analyzer->getSuppressedIssues()
@@ -420,14 +420,11 @@ class ExistingAtomicStaticCallAnalyzer
             $context
         );
 
-        if ($stmt_type = $statements_analyzer->node_data->getType($stmt)) {
-            $statements_analyzer->node_data->setType(
-                $stmt,
-                Type::combineUnionTypes($stmt_type, $return_type_candidate)
-            );
-        } else {
-            $statements_analyzer->node_data->setType($stmt, $return_type_candidate);
-        }
+        $stmt_type = $statements_analyzer->node_data->getType($stmt);
+        $statements_analyzer->node_data->setType(
+            $stmt,
+            Type::combineUnionTypes($stmt_type, $return_type_candidate)
+        );
 
         if ($codebase->store_node_types
             && !$context->collect_initializations

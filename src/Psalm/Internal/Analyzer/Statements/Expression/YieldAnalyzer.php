@@ -97,7 +97,7 @@ class YieldAnalyzer
                             'The @var annotation for ' . $var_comment->var_id . ' is unnecessary',
                             $type_location
                         ),
-                        [],
+                        $statements_analyzer->getSuppressedIssues(),
                         true
                     )) {
                         // fall through
@@ -158,15 +158,11 @@ class YieldAnalyzer
                             $classlike_storage
                         );
 
-                        if ($yield_type) {
-                            $yield_type = Type::combineUnionTypes(
-                                $yield_type,
-                                $yield_candidate_type,
-                                $codebase
-                            );
-                        } else {
-                            $yield_type = $yield_candidate_type;
-                        }
+                        $yield_type = Type::combineUnionTypes(
+                            $yield_type,
+                            $yield_candidate_type,
+                            $codebase
+                        );
                     } else {
                         $yield_type = Type::getMixed();
                     }

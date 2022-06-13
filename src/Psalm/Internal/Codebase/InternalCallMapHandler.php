@@ -14,6 +14,7 @@ use function assert;
 use function count;
 use function dirname;
 use function file_exists;
+use function strpos;
 use function strtolower;
 use function substr;
 use function version_compare;
@@ -26,22 +27,22 @@ use function version_compare;
 class InternalCallMapHandler
 {
     private const PHP_MAJOR_VERSION = 8;
-    private const PHP_MINOR_VERSION = 0;
+    private const PHP_MINOR_VERSION = 1;
     private const LOWEST_AVAILABLE_DELTA = 71;
 
     /**
      * @var ?int
      */
-    private static $loaded_php_major_version = null;
+    private static $loaded_php_major_version;
     /**
      * @var ?int
      */
-    private static $loaded_php_minor_version = null;
+    private static $loaded_php_minor_version;
 
     /**
      * @var array<lowercase-string, array<int|string,string>>|null
      */
-    private static $call_map = null;
+    private static $call_map;
 
     /**
      * @var array<list<TCallable>>|null
@@ -274,7 +275,7 @@ class InternalCallMapHandler
                     $optional = true;
                 }
 
-                if (substr($arg_name, 0, 3) === '...') {
+                if (strpos($arg_name, '...') === 0) {
                     $arg_name = substr($arg_name, 3);
                     $variadic = true;
                 }
@@ -384,19 +385,28 @@ class InternalCallMapHandler
                 }
                 /**
                  * @var array{
-                 *     old: array<string, array<int|string, string>>,
-                 *     new: array<string, array<int|string, string>>
+                 *     added: array<string, array<int|string, string>>,
+                 *     changed: array<string, array{
+                 *         old: array<int|string, string>,
+                 *         new: array<int|string, string>
+                 *     }>,
+                 *     removed: array<string, array<int|string, string>>
                  * }
                  * @psalm-suppress UnresolvableInclude
                  */
                 $diff_call_map = require($delta_file);
 
-                foreach ($diff_call_map['new'] as $key => $_) {
+                foreach ($diff_call_map['added'] as $key => $_) {
                     $cased_key = strtolower($key);
                     unset(self::$call_map[$cased_key]);
                 }
 
-                foreach ($diff_call_map['old'] as $key => $value) {
+                foreach ($diff_call_map['removed'] as $key => $value) {
+                    $cased_key = strtolower($key);
+                    self::$call_map[$cased_key] = $value;
+                }
+
+                foreach ($diff_call_map['changed'] as $key => ['old' => $value]) {
                     $cased_key = strtolower($key);
                     self::$call_map[$cased_key] = $value;
                 }

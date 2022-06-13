@@ -199,8 +199,9 @@ class NewAnalyzer extends \Psalm\Internal\Analyzer\Statements\Expression\CallAna
                 $extends = $stmt->class->extends ? (string) $stmt->class->extends : null;
                 $result_atomic_type = new Type\Atomic\TAnonymousClassInstance($fq_class_name, false, $extends);
             } else {
-                $result_atomic_type = new TNamedObject($fq_class_name);
-                $result_atomic_type->was_static = $from_static;
+                //if the class is a Name, it can't represent a child
+                $definite_class = $stmt->class instanceof PhpParser\Node\Name;
+                $result_atomic_type = new TNamedObject($fq_class_name, $from_static, $definite_class);
             }
 
             $statements_analyzer->node_data->setType(
@@ -677,14 +678,7 @@ class NewAnalyzer extends \Psalm\Internal\Analyzer\Statements\Expression\CallAna
                         }
                     }
 
-                    if ($new_type) {
-                        $new_type = Type::combineUnionTypes(
-                            $new_type,
-                            new Type\Union([$new_type_part])
-                        );
-                    } else {
-                        $new_type = new Type\Union([$new_type_part]);
-                    }
+                    $new_type = Type::combineUnionTypes($new_type, new Type\Union([$new_type_part]));
 
                     if ($lhs_type_part->as_type
                         && $codebase->classlikes->classExists($lhs_type_part->as_type->value)
@@ -793,14 +787,7 @@ class NewAnalyzer extends \Psalm\Internal\Analyzer\Statements\Expression\CallAna
                         }
                     }
 
-                    if ($new_type) {
-                        $new_type = Type::combineUnionTypes(
-                            $new_type,
-                            new Type\Union([$generated_type])
-                        );
-                    } else {
-                        $new_type = new Type\Union([$generated_type]);
-                    }
+                    $new_type = Type::combineUnionTypes($new_type, new Type\Union([$generated_type]));
                 }
 
                 continue;
@@ -849,14 +836,7 @@ class NewAnalyzer extends \Psalm\Internal\Analyzer\Statements\Expression\CallAna
                 // fall through
             }
 
-            if ($new_type) {
-                $new_type = Type::combineUnionTypes(
-                    $new_type,
-                    Type::getObject()
-                );
-            } else {
-                $new_type = Type::getObject();
-            }
+            $new_type = Type::combineUnionTypes($new_type, Type::getObject());
         }
 
         if (!$has_single_class) {

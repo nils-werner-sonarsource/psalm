@@ -5,7 +5,6 @@
     targetNamespace="https://getpsalm.org/schema/config"
     elementFormDefault="qualified"
 >
-    <xs:import namespace="http://www.w3.org/XML/1998/namespace" schemaLocation="http://www.w3.org/2001/03/xml.xsd" />
     <xs:element name="psalm" type="PsalmType" />
 
     <xs:complexType name="PsalmType">
@@ -98,19 +97,19 @@
             <xs:element name="file" minOccurs="0" maxOccurs="unbounded" type="NameAttributeType" />
             <xs:element name="ignoreFiles" minOccurs="0" maxOccurs="1" type="IgnoreFilesType" />
         </xs:choice>
-        <xs:attribute ref="xml:base" />
+        <xs:anyAttribute processContents="skip"/>
     </xs:complexType>
 
     <xs:complexType name="TaintAnalysisType">
         <xs:choice maxOccurs="unbounded">
             <xs:element name="ignoreFiles" minOccurs="0" maxOccurs="1" type="IgnoreFilesType" />
         </xs:choice>
-        <xs:attribute ref="xml:base" />
+        <xs:anyAttribute processContents="skip"/>
     </xs:complexType>
 
     <xs:complexType name="NameAttributeType">
-        <xs:attribute ref="xml:base" />
         <xs:attribute name="name" type="xs:string" use="required" />
+        <xs:anyAttribute processContents="skip"/>
     </xs:complexType>
 
     <xs:complexType name="StubsAttributeType">
@@ -125,14 +124,14 @@
         </xs:choice>
 
         <xs:attribute name="allowMissingFiles" type="xs:string" />
-        <xs:attribute ref="xml:base" />
+        <xs:anyAttribute processContents="skip"/>
     </xs:complexType>
 
     <xs:complexType name="ProjectDirectoryAttributeType">
         <xs:attribute name="name" type="xs:string" use="required" />
         <xs:attribute name="ignoreTypeStats" type="xs:string" />
         <xs:attribute name="useStrictTypes" type="xs:string" />
-        <xs:attribute ref="xml:base" />
+        <xs:anyAttribute processContents="skip"/>
     </xs:complexType>
 
     <xs:complexType name="FileExtensionsType">
@@ -145,21 +144,21 @@
                 </xs:complexType>
             </xs:element>
         </xs:sequence>
-        <xs:attribute ref="xml:base" />
+        <xs:anyAttribute processContents="skip"/>
     </xs:complexType>
 
     <xs:complexType name="MockClassesType">
         <xs:sequence>
             <xs:element name="class" maxOccurs="unbounded" type="NameAttributeType" />
         </xs:sequence>
-        <xs:attribute ref="xml:base" />
+        <xs:anyAttribute processContents="skip"/>
     </xs:complexType>
 
     <xs:complexType name="UniversalObjectCratesType">
         <xs:sequence>
             <xs:element name="class" maxOccurs="unbounded" type="NameAttributeType" />
         </xs:sequence>
-        <xs:attribute ref="xml:base" />
+        <xs:anyAttribute processContents="skip"/>
     </xs:complexType>
 
     <xs:complexType name="ExceptionsType">
@@ -167,21 +166,21 @@
             <xs:element name="class" minOccurs="0" maxOccurs="unbounded" type="ExceptionType" />
             <xs:element name="classAndDescendants" minOccurs="0" maxOccurs="unbounded" type="ExceptionType" />
         </xs:sequence>
-        <xs:attribute ref="xml:base" />
+        <xs:anyAttribute processContents="skip"/>
     </xs:complexType>
 
     <xs:complexType name="StubsType">
         <xs:sequence>
             <xs:element name="file" maxOccurs="unbounded" type="StubsAttributeType" />
         </xs:sequence>
-        <xs:attribute ref="xml:base" />
+        <xs:anyAttribute processContents="skip"/>
     </xs:complexType>
 
     <xs:complexType name="ExitFunctionsType">
         <xs:sequence>
             <xs:element name="function" maxOccurs="unbounded" type="NameAttributeType" />
         </xs:sequence>
-        <xs:attribute ref="xml:base" />
+        <xs:anyAttribute processContents="skip"/>
     </xs:complexType>
 
     <xs:complexType name="PluginsType">
@@ -200,7 +199,7 @@
                 </xs:complexType>
             </xs:element>
         </xs:choice>
-        <xs:attribute ref="xml:base" />
+        <xs:anyAttribute/>
     </xs:complexType>
 
     <xs:complexType name="IssueHandlersType">
@@ -227,6 +226,8 @@
             <xs:element name="DocblockTypeContradiction" type="IssueHandlerType" minOccurs="0" />
             <xs:element name="DuplicateArrayKey" type="IssueHandlerType" minOccurs="0" />
             <xs:element name="DuplicateClass" type="IssueHandlerType" minOccurs="0" />
+            <xs:element name="DuplicateEnumCase" type="ClassIssueHandlerType" minOccurs="0" />
+            <xs:element name="DuplicateEnumCaseValue" type="ClassIssueHandlerType" minOccurs="0" />
             <xs:element name="DuplicateFunction" type="IssueHandlerType" minOccurs="0" />
             <xs:element name="DuplicateMethod" type="MethodIssueHandlerType" minOccurs="0" />
             <xs:element name="DuplicateParam" type="IssueHandlerType" minOccurs="0" />
@@ -236,6 +237,7 @@
             <xs:element name="FalseOperand" type="IssueHandlerType" minOccurs="0" />
             <xs:element name="ForbiddenCode" type="IssueHandlerType" minOccurs="0" />
             <xs:element name="ForbiddenEcho" type="IssueHandlerType" minOccurs="0" />
+            <xs:element name="IfThisIsMismatch" type="IssueHandlerType" minOccurs="0" />
             <xs:element name="ImplementationRequirementViolation" type="IssueHandlerType" minOccurs="0" />
             <xs:element name="ImplementedParamTypeMismatch" type="IssueHandlerType" minOccurs="0" />
             <xs:element name="ImplementedReturnTypeMismatch" type="IssueHandlerType" minOccurs="0" />
@@ -266,6 +268,8 @@
             <xs:element name="InvalidClone" type="IssueHandlerType" minOccurs="0" />
             <xs:element name="InvalidDocblock" type="IssueHandlerType" minOccurs="0" />
             <xs:element name="InvalidDocblockParamName" type="IssueHandlerType" minOccurs="0" />
+            <xs:element name="InvalidEnumBackingType" type="ClassIssueHandlerType" minOccurs="0" />
+            <xs:element name="InvalidEnumCaseValue" type="ClassIssueHandlerType" minOccurs="0" />
             <xs:element name="InvalidExtendClass" type="ClassIssueHandlerType" minOccurs="0" />
             <xs:element name="InvalidFalsableReturnType" type="IssueHandlerType" minOccurs="0" />
             <xs:element name="InvalidFunctionCall" type="IssueHandlerType" minOccurs="0" />
@@ -477,7 +481,7 @@
             <xs:element name="UnusedReturnValue" type="IssueHandlerType" minOccurs="0" />
             <xs:element name="UnusedVariable" type="IssueHandlerType" minOccurs="0" />
         </xs:choice>
-        <xs:attribute ref="xml:base" />
+        <xs:anyAttribute/>
     </xs:complexType>
 
     <xs:complexType name="IssueHandlerType">
@@ -627,7 +631,7 @@
         <xs:sequence>
             <xs:element name="var" maxOccurs="unbounded" type="IdentifierType" />
         </xs:sequence>
-        <xs:attribute ref="xml:base" />
+        <xs:anyAttribute/>
     </xs:complexType>
 
     <xs:complexType name="IdentifierType">

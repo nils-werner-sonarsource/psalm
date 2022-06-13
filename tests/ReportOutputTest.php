@@ -852,7 +852,22 @@ echo $a;';
         $this->assertIsArray(json_decode($report->create()));
     }
 
-    public function testSonarqubeReport(): void
+    /**
+     * @return iterable<string, array{string,test_file:string}>
+     */
+    public function sonarSourceProvider(): iterable
+    {
+        return [
+            "SonarQube" => ['sonarqube', 'test-sonarqube.json'],
+            "SonarCloud" => ['sonarcloud', 'test-sonarcloud.json']
+        ];
+    }
+
+    /**
+     * @param string 'sonarcloud'|'sonarqube' $sonar_source_format
+     * @dataProvider sonarSourceProvider
+     */
+    public function testSonarSourceReport(string $sonar_source_format, string $test_file): void
     {
         $this->analyzeFileForReport();
 
@@ -941,12 +956,12 @@ echo $a;';
             ],
         ];
 
-        $sonarqube_report_options = ProjectAnalyzer::getFileReportOptions([__DIR__ . '/test-sonarqube.json'])[0];
-        $sonarqube_report_options->format = 'sonarqube';
+        $sonar_source_report_options = ProjectAnalyzer::getFileReportOptions([__DIR__ . '/' . $test_file])[0];
+        $sonar_source_report_options->format = $sonar_source_format;
 
         $this->assertSame(
             $issue_data,
-            json_decode(IssueBuffer::getOutput(IssueBuffer::getIssuesData(), $sonarqube_report_options), true)
+            json_decode(IssueBuffer::getOutput(IssueBuffer::getIssuesData(), $sonar_source_report_options), true)
         );
     }
 
@@ -1107,7 +1122,7 @@ INFO: PossiblyUndefinedGlobalVariable - somefile.php:17:6 - Possibly undefined g
  <error line="3" column="10" severity="error" message="MixedReturnStatement: Could not infer a return type"/>
 </file>
 <file name="somefile.php">
- <error line="2" column="42" severity="error" message="MixedInferredReturnType: Could not verify return type \'null|string\' for psalmCanVerify"/>
+ <error line="2" column="42" severity="error" message="MixedInferredReturnType: Could not verify return type &apos;null|string&apos; for psalmCanVerify"/>
 </file>
 <file name="somefile.php">
  <error line="8" column="6" severity="error" message="UndefinedConstant: Const CHANGE_ME is not defined"/>

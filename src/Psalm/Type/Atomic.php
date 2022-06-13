@@ -34,6 +34,7 @@ use Psalm\Type\Atomic\TNamedObject;
 use Psalm\Type\Atomic\TNever;
 use Psalm\Type\Atomic\TNonEmptyArray;
 use Psalm\Type\Atomic\TNonEmptyList;
+use Psalm\Type\Atomic\TNonEmptyMixed;
 use Psalm\Type\Atomic\TNonEmptyScalar;
 use Psalm\Type\Atomic\TNull;
 use Psalm\Type\Atomic\TNumeric;
@@ -55,7 +56,6 @@ use function get_class;
 use function is_numeric;
 use function strpos;
 use function strtolower;
-use function substr;
 
 abstract class Atomic implements TypeNode
 {
@@ -283,9 +283,12 @@ abstract class Atomic implements TypeNode
 
             case 'empty-scalar':
                 return new TEmptyScalar;
+
+            case 'non-empty-mixed':
+                return new TNonEmptyMixed();
         }
 
-        if (strpos($value, '-') && substr($value, 0, 4) !== 'OCI-') {
+        if (strpos($value, '-') && strpos($value, 'OCI-') !== 0) {
             throw new \Psalm\Exception\TypeParseTreeException('Unrecognized type ' . $value);
         }
 

@@ -17,14 +17,21 @@ use function trim;
 
 use const PREG_OFFSET_CAPTURE;
 
+/**
+ * This class will parse Docblocks in order to extract known tags from them
+ */
 class DocblockParser
 {
-    public static function parse(string $docblock) : ParsedDocblock
+    /**
+     * $offsetStart is the absolute position of the docblock in the file. It'll be used to add to the position of some
+     * special tags (like `psalm-suppress`) for future uses
+     */
+    public static function parse(string $docblock, int $offsetStart) : ParsedDocblock
     {
         // Strip off comments.
         $docblock = trim($docblock);
 
-        if (substr($docblock, 0, 3) === '/**') {
+        if (strpos($docblock, '/**') === 0) {
             $docblock = substr($docblock, 3);
         }
 
@@ -74,7 +81,7 @@ class DocblockParser
 
             if (preg_match('/^[ \t]*\*?\s*@([\w\-\\\:]+)[\t ]*(.*)$/sm', $line, $matches, PREG_OFFSET_CAPTURE)) {
                 /** @var array<int, array{string, int}> $matches */
-                [$_, $type_info, $data_info] = $matches;
+                [, $type_info, $data_info] = $matches;
 
                 [$type] = $type_info;
                 [$data, $data_offset] = $data_info;
@@ -89,7 +96,7 @@ class DocblockParser
 
                 $data_offset += $line_offset;
 
-                $special[$type][$data_offset + 3] = $data;
+                $special[$type][$data_offset + 3 + $offsetStart] = $data;
 
                 unset($lines[$k]);
             } else {

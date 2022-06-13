@@ -17,6 +17,7 @@ use Psalm\Type;
 use Psalm\Type\Atomic;
 use Psalm\Type\Atomic\TClassString;
 use Psalm\Type\Atomic\TInt;
+use Psalm\Type\Atomic\TIntRange;
 use Psalm\Type\Atomic\TMixed;
 use Psalm\Type\Atomic\TNamedObject;
 use Psalm\Type\Atomic\TString;
@@ -86,7 +87,7 @@ class AssertionReconciler extends \Psalm\Type\Reconciler
 
         $original_assertion = $assertion;
 
-        if ($assertion[0] === '>') {
+        if ($assertion[0] === '@') {
             $assertion = 'falsy';
             $is_negation = true;
         }
@@ -123,7 +124,8 @@ class AssertionReconciler extends \Psalm\Type\Reconciler
                 $negated,
                 $code_location,
                 $suppressed_issues,
-                $failed_reconciliation
+                $failed_reconciliation,
+                $inside_loop
             );
         }
 
@@ -145,7 +147,7 @@ class AssertionReconciler extends \Psalm\Type\Reconciler
             return $simply_reconciled_type;
         }
 
-        if (substr($assertion, 0, 4) === 'isa-') {
+        if (strpos($assertion, 'isa-') === 0) {
             $should_return = false;
 
             $new_type = self::handleIsA(
@@ -162,7 +164,7 @@ class AssertionReconciler extends \Psalm\Type\Reconciler
             if ($should_return) {
                 return $new_type;
             }
-        } elseif (substr($assertion, 0, 9) === 'getclass-') {
+        } elseif (strpos($assertion, 'getclass-') === 0) {
             $assertion = substr($assertion, 9);
             $new_type = Type::parseString($assertion, null, $template_type_map);
         } else {
@@ -836,6 +838,34 @@ class AssertionReconciler extends \Psalm\Type\Reconciler
                     }
                 }
 
+                //These partial match wouldn't have been handled by AtomicTypeComparator
+                $new_range = null;
+                if ($new_type_part instanceof Atomic\TIntRange && $existing_type_part instanceof Atomic\TPositiveInt) {
+                    $new_range = TIntRange::intersectIntRanges(
+                        TIntRange::convertToIntRange($existing_type_part),
+                        $new_type_part
+                    );
+                } elseif ($existing_type_part instanceof Atomic\TIntRange
+                    && $new_type_part instanceof Atomic\TPositiveInt
+                ) {
+                    $new_range = TIntRange::intersectIntRanges(
+                        $existing_type_part,
+                        TIntRange::convertToIntRange($new_type_part)
+                    );
+                } elseif ($new_type_part instanceof Atomic\TIntRange
+                    && $existing_type_part instanceof Atomic\TIntRange
+                ) {
+                    $new_range = TIntRange::intersectIntRanges(
+                        $existing_type_part,
+                        $new_type_part
+                    );
+                }
+
+                if ($new_range !== null) {
+                    $has_local_match = true;
+                    $matching_atomic_types[] = $new_range;
+                }
+
                 if ($atomic_comparison_results->type_coerced) {
                     continue;
                 }
@@ -973,7 +1003,7 @@ class AssertionReconciler extends \Psalm\Type\Reconciler
                     $did_remove_type = false;
 
                     foreach ($existing_var_atomic_types as $atomic_key => $_) {
-                        if (substr($atomic_key, 0, 6) === 'float(') {
+                        if (strpos($atomic_key, 'float(') === 0) {
                             $atomic_key = 'int(' . substr($atomic_key, 6);
                         }
                         if ($atomic_key !== $assertion) {
@@ -1045,7 +1075,7 @@ class AssertionReconciler extends \Psalm\Type\Reconciler
                         $existing_var_atomic_type->as = self::handleLiteralEquality(
                             $assertion,
                             $bracket_pos,
-                            $is_loose_equality,
+                            false,
                             $existing_var_atomic_type->as,
                             $old_var_type_string,
                             $var_id,
@@ -1181,7 +1211,7 @@ class AssertionReconciler extends \Psalm\Type\Reconciler
                     $did_remove_type = false;
 
                     foreach ($existing_var_atomic_types as $atomic_key => $_) {
-                        if (substr($atomic_key, 0, 4) === 'int(') {
+                        if (strpos($atomic_key, 'int(') === 0) {
                             $atomic_key = 'float(' . substr($atomic_key, 4);
                         }
                         if ($atomic_key !== $assertion) {
@@ -1210,7 +1240,7 @@ class AssertionReconciler extends \Psalm\Type\Reconciler
                 }
             }
         } elseif ($scalar_type === 'enum') {
-            list($fq_enum_name, $case_name) = explode('::', $value);
+            [$fq_enum_name, $case_name] = explode('::', $value);
 
             if ($existing_var_type->hasMixed()) {
                 if ($is_loose_equality) {
@@ -1267,7 +1297,7 @@ class AssertionReconciler extends \Psalm\Type\Reconciler
         Codebase $codebase,
         Union $existing_var_type,
         string &$assertion,
-        array &$template_type_map,
+        array $template_type_map,
         ?CodeLocation $code_location,
         ?string $key,
         array $suppressed_issues,
@@ -1277,7 +1307,7 @@ class AssertionReconciler extends \Psalm\Type\Reconciler
 
         $allow_string_comparison = false;
 
-        if (substr($assertion, 0, 7) === 'string-') {
+        if (strpos($assertion, 'string-') === 0) {
             $assertion = substr($assertion, 7);
             $allow_string_comparison = true;
         }
@@ -1305,7 +1335,9 @@ class AssertionReconciler extends \Psalm\Type\Reconciler
 
         if ($existing_has_object && !$existing_has_string) {
             return Type::parseString($assertion, null, $template_type_map);
-        } elseif ($existing_has_string && !$existing_has_object) {
+        }
+
+        if ($existing_has_string && !$existing_has_object) {
             if (!$allow_string_comparison && $code_location) {
                 if (IssueBuffer::accepts(
                     new TypeDoesNotContainType(

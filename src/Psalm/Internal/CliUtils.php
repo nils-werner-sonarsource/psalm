@@ -63,7 +63,7 @@ final class CliUtils
             require_once __DIR__ . '/../../../vendor/netresearch/jsonmapper/src/JsonMapper/Exception.php';
         }
 
-        if (realpath($psalm_dir) !== realpath($current_dir) && !$in_phar) {
+        if (!$in_phar && realpath($psalm_dir) !== realpath($current_dir)) {
             $autoload_roots[] = $psalm_dir;
         }
 
@@ -231,7 +231,7 @@ final class CliUtils
         if ($f_paths) {
             $input_paths = is_array($f_paths) ? $f_paths : [$f_paths];
         } else {
-            $input_paths = $argv ? $argv : null;
+            $input_paths = $argv ?: null;
         }
 
         if ($input_paths) {
@@ -241,13 +241,14 @@ final class CliUtils
                 /** @var string */
                 $input_path = $input_paths[$i];
 
-                if (realpath($input_path) === realpath(dirname(__DIR__, 5) . DIRECTORY_SEPARATOR . 'bin'
+                $real_input_path = realpath($input_path);
+                if ($real_input_path === realpath(dirname(__DIR__, 5) . DIRECTORY_SEPARATOR . 'bin'
                         . DIRECTORY_SEPARATOR . 'psalm')
-                    || realpath($input_path) === realpath(dirname(__DIR__, 5) . DIRECTORY_SEPARATOR . 'bin'
+                    || $real_input_path === realpath(dirname(__DIR__, 5) . DIRECTORY_SEPARATOR . 'bin'
                         . DIRECTORY_SEPARATOR . 'psalter')
-                    || realpath($input_path) === realpath(dirname(__DIR__, 3) . DIRECTORY_SEPARATOR . 'psalm')
-                    || realpath($input_path) === realpath(dirname(__DIR__, 3) . DIRECTORY_SEPARATOR . 'psalter')
-                    || realpath($input_path) === realpath(Phar::running(false))
+                    || $real_input_path === realpath(dirname(__DIR__, 3) . DIRECTORY_SEPARATOR . 'psalm')
+                    || $real_input_path === realpath(dirname(__DIR__, 3) . DIRECTORY_SEPARATOR . 'psalter')
+                    || $real_input_path === realpath(Phar::running(false))
                 ) {
                     continue;
                 }
@@ -263,7 +264,7 @@ final class CliUtils
                     continue;
                 }
 
-                if (substr($input_path, 0, 2) === '--' && strlen($input_path) > 2) {
+                if (strpos($input_path, '--') === 0 && strlen($input_path) > 2) {
                     if (substr($input_path, 2) === 'config') {
                         ++$i;
                     }
@@ -395,8 +396,8 @@ Output:
 
     --output-format=console
         Changes the output format.
-        Available formats: compact, console, text, emacs, json, pylint, xml, checkstyle, junit, sonarqube, github,
-                           phpstorm, codeclimate
+        Available formats: compact, console, text, emacs, json, pylint, xml, checkstyle, junit, sonarqube, sonarcloud,
+                           github, phpstorm, codeclimate
 
     --no-progress
         Disable the progress indicator
@@ -411,7 +412,8 @@ Reports:
     --report=PATH
         The path where to output report file. The output format is based on the file extension.
         (Currently supported formats: ".json", ".xml", ".txt", ".emacs", ".pylint", ".console",
-        ".sarif", "checkstyle.xml", "sonarqube.json", "codeclimate.json", "summary.json", "junit.xml")
+        ".sarif", "checkstyle.xml", "sonarqube.json", "sonarcloud.json", "codeclimate.json", "summary.json",
+        "junit.xml")
 
     --report-show-info[=BOOLEAN]
         Whether the report should include non-errors in its output (defaults to true)

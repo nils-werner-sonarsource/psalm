@@ -1144,7 +1144,7 @@ class ArrayAssignmentTest extends TestCase
                     $b[] = rand(0, 10);',
                 'assertions' => [
                     '$a' => 'array{int, int, int}',
-                    '$b' => 'array{int, int, int, int}',
+                    '$b' => 'array{int, int, int, int<0, 10>}',
                 ],
             ],
             'listMergedWithTKeyedArrayList' => [
@@ -1545,7 +1545,8 @@ class ArrayAssignmentTest extends TestCase
                     }'
             ],
             'ArrayCreateTemplateArrayKey' => [
-                '/**
+                '<?php
+                /**
                   * @template K of array-key
                   * @param K $key
                   */
@@ -1609,6 +1610,26 @@ class ArrayAssignmentTest extends TestCase
                             return $names[$aprop];
                         }
                     }',
+            ],
+            'AddTwoSealedArrays'  => [
+                '<?php
+                    final class Token
+                    {
+                        public const ONE = [
+                            16 => 16,
+                        ];
+
+                        public const TWO = [
+                            17 => 17,
+                        ];
+
+                        public const THREE = [
+                            18 => 18,
+                        ];
+                    }
+                    $_a = Token::ONE + Token::TWO + Token::THREE;
+                    ',
+                'assertions' => ['$_a===' => 'array{16: 16, 17: 17, 18: 18}']
             ],
         ];
     }

@@ -366,6 +366,7 @@ class ProjectAnalyzer
         $mapping = [
             'checkstyle.xml' => Report::TYPE_CHECKSTYLE,
             'sonarqube.json' => Report::TYPE_SONARQUBE,
+            'sonarcloud.json' => Report::TYPE_SONARCLOUD,
             'codeclimate.json' => Report::TYPE_CODECLIMATE,
             'summary.json' => Report::TYPE_JSON_SUMMARY,
             'junit.xml' => Report::TYPE_JUNIT,
@@ -582,6 +583,7 @@ class ProjectAnalyzer
             || $deleted_files === null
             || count($diff_files) > 200
         ) {
+            $this->config->visitPreloadedStubFiles($this->codebase, $this->progress);
             $this->visitAutoloadFiles();
 
             $this->codebase->scanner->addFilesToShallowScan($this->extra_files);
@@ -589,8 +591,6 @@ class ProjectAnalyzer
             $this->codebase->analyzer->addFilesToAnalyze($this->project_files);
 
             $this->config->initializePlugins($this);
-
-            $this->config->visitPreloadedStubFiles($this->codebase, $this->progress);
 
             $this->codebase->scanFiles($this->threads);
 
@@ -608,13 +608,12 @@ class ProjectAnalyzer
                 $file_list = array_diff($file_list, $deleted_files);
 
                 if ($file_list) {
+                    $this->config->visitPreloadedStubFiles($this->codebase, $this->progress);
                     $this->visitAutoloadFiles();
 
                     $this->checkDiffFilesWithConfig($this->config, $file_list);
 
                     $this->config->initializePlugins($this);
-
-                    $this->config->visitPreloadedStubFiles($this->codebase, $this->progress);
 
                     $this->codebase->scanFiles($this->threads);
                 } else {
@@ -662,7 +661,7 @@ class ProjectAnalyzer
         $this->codebase->classlikes->consolidateAnalyzedData(
             $this->codebase->methods,
             $this->progress,
-            !!$this->codebase->find_unused_code
+            (bool)$this->codebase->find_unused_code
         );
     }
 
@@ -690,7 +689,7 @@ class ProjectAnalyzer
                 && $destination_pos === (strlen($destination) - 1)
             ) {
                 foreach ($this->codebase->classlike_storage_provider->getAll() as $class_storage) {
-                    if (substr($class_storage->name, 0, $source_pos) === substr($source, 0, -1)) {
+                    if (strpos($source, substr($class_storage->name, 0, $source_pos)) === 0) {
                         $this->to_refactor[$class_storage->name]
                             = substr($destination, 0, -1) . substr($class_storage->name, $source_pos);
                     }
@@ -989,13 +988,13 @@ class ProjectAnalyzer
     {
         $this->file_reference_provider->loadReferenceCache();
 
+        $this->config->visitPreloadedStubFiles($this->codebase, $this->progress);
+
         $this->checkDirWithConfig($dir_name, $this->config, true);
 
         $this->progress->startScanningFiles();
 
         $this->config->initializePlugins($this);
-
-        $this->config->visitPreloadedStubFiles($this->codebase, $this->progress);
 
         $this->codebase->scanFiles($this->threads);
 
@@ -1116,6 +1115,8 @@ class ProjectAnalyzer
     {
         $this->progress->debug('Checking ' . $file_path . "\n");
 
+        $this->config->visitPreloadedStubFiles($this->codebase, $this->progress);
+
         $this->config->hide_external_errors = $this->config->isInProjectDirs($file_path);
 
         $this->codebase->addFilesToAnalyze([$file_path => $file_path]);
@@ -1125,8 +1126,6 @@ class ProjectAnalyzer
         $this->progress->startScanningFiles();
 
         $this->config->initializePlugins($this);
-
-        $this->config->visitPreloadedStubFiles($this->codebase, $this->progress);
 
         $this->codebase->scanFiles($this->threads);
 
@@ -1147,6 +1146,7 @@ class ProjectAnalyzer
      */
     public function checkPaths(array $paths_to_check): void
     {
+        $this->config->visitPreloadedStubFiles($this->codebase, $this->progress);
         $this->visitAutoloadFiles();
 
         $this->codebase->scanner->addFilesToShallowScan($this->extra_files);
@@ -1168,7 +1168,6 @@ class ProjectAnalyzer
 
         $this->config->initializePlugins($this);
 
-        $this->config->visitPreloadedStubFiles($this->codebase, $this->progress);
 
         $this->codebase->scanFiles($this->threads);
 
@@ -1336,13 +1335,11 @@ class ProjectAnalyzer
 
         $file_path = $this->codebase->scanner->getClassLikeFilePath($fq_class_name_lc);
 
-        $file_analyzer = new FileAnalyzer(
+        return new FileAnalyzer(
             $this,
             $file_path,
             $this->config->shortenFileName($file_path)
         );
-
-        return $file_analyzer;
     }
 
     public function getMethodMutations(
@@ -1447,7 +1444,7 @@ class ProjectAnalyzer
             return 1;
         }
 
-        if (!extension_loaded('pcntl')) {
+        if (!extension_loaded('pcntl') || !\function_exists('shell_exec')) {
             return 1;
         }
 

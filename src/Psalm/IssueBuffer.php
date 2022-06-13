@@ -20,7 +20,7 @@ use Psalm\Report\JunitReport;
 use Psalm\Report\PhpStormReport;
 use Psalm\Report\PylintReport;
 use Psalm\Report\SarifReport;
-use Psalm\Report\SonarqubeReport;
+use Psalm\Report\SonarSourceReport;
 use Psalm\Report\TextReport;
 use Psalm\Report\XmlReport;
 
@@ -115,7 +115,7 @@ class IssueBuffer
 
     public static function addUnusedSuppression(string $file_path, int $offset, string $issue_type) : void
     {
-        if (\substr($issue_type, 0, 7) === 'Tainted') {
+        if (\strpos($issue_type, 'Tainted') === 0) {
             return;
         }
 
@@ -215,7 +215,7 @@ class IssueBuffer
             return false;
         }
 
-        $is_tainted = \substr($issue_type, 0, 7) === 'Tainted';
+        $is_tainted = \strpos($issue_type, 'Tainted') === 0;
 
         if ($project_analyzer->getCodebase()->taint_flow_graph && !$is_tainted) {
             return false;
@@ -395,6 +395,10 @@ class IssueBuffer
                 continue;
             }
 
+            if (!$config->isInProjectDirs($file_path)) {
+                continue;
+            }
+
             $file_contents = $file_provider->getContents($file_path);
 
             foreach ($offsets as $start => $end) {
@@ -527,12 +531,12 @@ class IssueBuffer
                                 if ($position !== false) {
                                     $issue_data->severity = Config::REPORT_INFO;
                                     array_splice($issue_baseline[$file][$type]['s'], $position, 1);
-                                    $issue_baseline[$file][$type]['o'] = $issue_baseline[$file][$type]['o'] - 1;
+                                    $issue_baseline[$file][$type]['o']--;
                                 }
                             } else {
                                 $issue_baseline[$file][$type]['s'] = [];
                                 $issue_data->severity = Config::REPORT_INFO;
-                                $issue_baseline[$file][$type]['o'] = $issue_baseline[$file][$type]['o'] - 1;
+                                $issue_baseline[$file][$type]['o']--;
                             }
                         }
 
@@ -751,7 +755,8 @@ class IssueBuffer
                 break;
 
             case Report::TYPE_SONARQUBE:
-                $output = new SonarqubeReport($normalized_data, self::$fixable_issue_counts, $report_options);
+            case Report::TYPE_SONARCLOUD:
+                $output = new SonarSourceReport($normalized_data, self::$fixable_issue_counts, $report_options);
                 break;
 
             case Report::TYPE_PYLINT:

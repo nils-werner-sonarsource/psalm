@@ -55,7 +55,6 @@ use function getcwd;
 use function glob;
 use function implode;
 use function in_array;
-use function intval;
 use function is_a;
 use function is_dir;
 use function is_file;
@@ -80,7 +79,6 @@ use function strlen;
 use function strpos;
 use function strrpos;
 use function strtolower;
-use function strtr;
 use function substr;
 use function substr_count;
 use function sys_get_temp_dir;
@@ -182,7 +180,7 @@ class Config
      *
      * @var bool|null
      */
-    public $load_xdebug_stub = null;
+    public $load_xdebug_stub;
 
     /**
      * The directory to store PHP Parser (and other) caches
@@ -288,7 +286,7 @@ class Config
     /**
      * @var ?bool
      */
-    public $show_mixed_issues = null;
+    public $show_mixed_issues;
 
     /** @var bool */
     public $strict_binary_operands = false;
@@ -501,7 +499,7 @@ class Config
     public $hash = '';
 
     /** @var string|null */
-    public $error_baseline = null;
+    public $error_baseline;
 
     /**
      * @var bool
@@ -631,6 +629,14 @@ class Config
         }
 
         return $config;
+    }
+
+    /**
+     * Computes the hash to use for a cache folder from CLI flags and from the config file's xml contents
+     */
+    public function computeHash(): string
+    {
+        return sha1($this->hash . ':' . $this->level);
     }
 
     /**
@@ -970,7 +976,7 @@ class Config
         }
 
         if (isset($config_xml['maxStringLength'])) {
-            $attribute_text = intval($config_xml['maxStringLength']);
+            $attribute_text = (int)$config_xml['maxStringLength'];
             $config->max_string_length = $attribute_text;
         }
 
@@ -1161,6 +1167,15 @@ class Config
         $this->composer_class_loader = $loader;
     }
 
+    public function setAdvancedErrorLevel(string $issue_key, array $config, ?string $default_error_level = null): void
+    {
+        $this->issue_handlers[$issue_key] = new IssueHandler();
+        if ($default_error_level !== null) {
+            $this->issue_handlers[$issue_key]->setErrorLevel($default_error_level);
+        }
+        $this->issue_handlers[$issue_key]->setCustomLevels($config, $this->base_dir);
+    }
+
     public function setCustomErrorLevel(string $issue_key, string $error_level): void
     {
         $this->issue_handlers[$issue_key] = new IssueHandler();
@@ -1251,7 +1266,7 @@ class Config
 
                     self::requirePath($plugin_class_path);
                 } else {
-                    if (!class_exists($plugin_class_name, true)) {
+                    if (!class_exists($plugin_class_name)) {
                         throw new \UnexpectedValueException($plugin_class_name . ' is not a known class');
                     }
                 }
@@ -2104,11 +2119,10 @@ class Config
             return null;
         }
 
-        /** @var array<string, array<int, string>> */
         $psr4_prefixes = $this->composer_class_loader->getPrefixesPsr4();
 
         // PSR-4 lookup
-        $logicalPathPsr4 = strtr($class, '\\', DIRECTORY_SEPARATOR) . '.php';
+        $logicalPathPsr4 = str_replace('\\', DIRECTORY_SEPARATOR, $class) . '.php';
 
         $candidate_path = null;
 
@@ -2193,11 +2207,7 @@ class Config
 
     public function getPhpVersion(): ?string
     {
-        if (isset($this->configured_php_version)) {
-            return $this->configured_php_version;
-        }
-
-        return $this->getPHPVersionFromComposerJson();
+        return $this->configured_php_version ?? $this->getPHPVersionFromComposerJson();
     }
 
     private function setBooleanAttribute(string $name, bool $value): void
@@ -2239,7 +2249,7 @@ class Config
 
     public function addUniversalObjectCrate(string $class): void
     {
-        if (!class_exists($class, true)) {
+        if (!class_exists($class)) {
             throw new \UnexpectedValueException($class . ' is not a known class');
         }
         $this->universal_object_crates[] = $class;

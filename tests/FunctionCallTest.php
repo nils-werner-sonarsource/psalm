@@ -948,6 +948,15 @@ class FunctionCallTest extends TestCase
                 [],
                 '7.3',
             ],
+            'hashInit80' => [
+                '<?php
+                    $h = hash_init("sha256");',
+                [
+                    '$h' => 'HashContext',
+                ],
+                [],
+                '8.0',
+            ],
             'nullableByRef' => [
                 '<?php
                     function foo(?string &$s) : void {}
@@ -1592,6 +1601,36 @@ class FunctionCallTest extends TestCase
 
                         foo($s);
                     }',
+            ],
+            'preventObjectLeakingFromCallmapReference' => [
+                '<?php
+                    function one(): void
+                    {
+                        try {
+                            exec("", $output);
+                        } catch (Exception $e){
+                        }
+                    }
+
+                    function two(): array
+                    {
+                        exec("", $lines);
+                        return $lines;
+                    }',
+            ],
+            'array_is_list' => [
+                '<?php
+                    function getArray() : array {
+                        return [];
+                    }
+                    $s = getArray();
+                    assert(array_is_list($s));
+                    ',
+                'assertions' => [
+                    '$s' => 'list<mixed>',
+                ],
+                [],
+                '8.1',
             ],
         ];
     }

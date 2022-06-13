@@ -44,7 +44,7 @@ class ReturnTypeCollector
                 } elseif ($stmt->expr instanceof PhpParser\Node\Scalar\String_) {
                     $return_types[] = Type::getString();
                 } elseif ($stmt->expr instanceof PhpParser\Node\Scalar\LNumber) {
-                    $return_types[] = Type::getString();
+                    $return_types[] = Type::getInt();
                 } elseif ($stmt->expr instanceof PhpParser\Node\Expr\ConstFetch) {
                     if ((string)$stmt->expr->name === 'true') {
                         $return_types[] = Type::getTrue();
@@ -243,17 +243,8 @@ class ReturnTypeCollector
             if ($type instanceof Type\Atomic\TArray) {
                 [$key_type_param, $value_type_param] = $type->type_params;
 
-                if (!$key_type) {
-                    $key_type = clone $key_type_param;
-                } else {
-                    $key_type = Type::combineUnionTypes($key_type_param, $key_type);
-                }
-
-                if (!$value_type) {
-                    $value_type = clone $value_type_param;
-                } else {
-                    $value_type = Type::combineUnionTypes($value_type_param, $value_type);
-                }
+                $key_type = Type::combineUnionTypes(clone $key_type_param, $key_type);
+                $value_type = Type::combineUnionTypes(clone $value_type_param, $value_type);
             } elseif ($type instanceof Type\Atomic\TIterable
                 || $type instanceof Type\Atomic\TNamedObject
             ) {
@@ -312,23 +303,30 @@ class ReturnTypeCollector
             }
 
             return [Type::getMixed()];
-        } elseif ($stmt instanceof PhpParser\Node\Expr\YieldFrom) {
+        }
+
+        if ($stmt instanceof PhpParser\Node\Expr\YieldFrom) {
             if ($stmt_expr_type = $nodes->getType($stmt->expr)) {
                 return [$stmt_expr_type];
             }
 
             return [Type::getMixed()];
-        } elseif ($stmt instanceof PhpParser\Node\Expr\BinaryOp) {
+        }
+
+        if ($stmt instanceof PhpParser\Node\Expr\BinaryOp) {
             return array_merge(
                 self::getYieldTypeFromExpression($stmt->left, $nodes),
                 self::getYieldTypeFromExpression($stmt->right, $nodes)
             );
-        } elseif ($stmt instanceof PhpParser\Node\Expr\Assign) {
+        }
+
+        if ($stmt instanceof PhpParser\Node\Expr\Assign) {
             return self::getYieldTypeFromExpression($stmt->expr, $nodes);
-        } elseif ($stmt instanceof PhpParser\Node\Expr\MethodCall
+        }
+
+        if ($stmt instanceof PhpParser\Node\Expr\MethodCall
             || $stmt instanceof PhpParser\Node\Expr\FuncCall
-            || $stmt instanceof PhpParser\Node\Expr\StaticCall
-        ) {
+            || $stmt instanceof PhpParser\Node\Expr\StaticCall) {
             $yield_types = [];
 
             foreach ($stmt->args as $arg) {

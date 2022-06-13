@@ -191,16 +191,11 @@ class CallAnalyzer
                     || $is_final)
             ) {
                 $local_vars_in_scope = [];
-                $local_vars_possibly_in_scope = [];
 
                 foreach ($context->vars_in_scope as $var_id => $type) {
                     if (strpos($var_id, '$this->') === 0) {
                         if ($type->initialized) {
                             $local_vars_in_scope[$var_id] = $context->vars_in_scope[$var_id];
-
-                            if (isset($context->vars_possibly_in_scope[$var_id])) {
-                                $local_vars_possibly_in_scope[$var_id] = $context->vars_possibly_in_scope[$var_id];
-                            }
 
                             unset($context->vars_in_scope[$var_id]);
                             unset($context->vars_possibly_in_scope[$var_id]);
@@ -320,7 +315,7 @@ class CallAnalyzer
             $args,
             $method_params,
             (string) $method_id,
-            $method_storage ? $method_storage->allow_named_arg_calls : true,
+            $method_storage->allow_named_arg_calls ?? true,
             $context,
             $class_template_result
         ) === false) {
@@ -393,14 +388,10 @@ class CallAnalyzer
                                     $output_type_candidate = new Type\Union([$atomic_type]);
                                 }
 
-                                if (!$output_type) {
-                                    $output_type = $output_type_candidate;
-                                } else {
-                                    $output_type = Type::combineUnionTypes(
-                                        $output_type_candidate,
-                                        $output_type
-                                    );
-                                }
+                                $output_type = Type::combineUnionTypes(
+                                    $output_type_candidate,
+                                    $output_type
+                                );
                             }
 
                             $template_types[$template_name][$declaring_class_storage->name] = $output_type;
@@ -423,11 +414,11 @@ class CallAnalyzer
                     $codebase,
                     $type,
                     $appearing_class_name,
-                    $calling_class_storage ? $calling_class_storage->name : null,
+                    $calling_class_storage->name ?? null,
                     null,
                     true,
                     false,
-                    $calling_class_storage ? $calling_class_storage->final : false
+                    $calling_class_storage->final ?? false
                 );
             }
         }
@@ -471,8 +462,7 @@ class CallAnalyzer
     }
 
     /**
-     * @param  PhpParser\Node\Scalar\String_|PhpParser\Node\Expr\Array_|PhpParser\Node\Expr\BinaryOp\Concat
-     *         $callable_arg
+     * @param PhpParser\Node\Scalar\String_|PhpParser\Node\Expr\Array_|PhpParser\Node\Expr\BinaryOp\Concat $callable_arg
      *
      * @return list<non-empty-string>
      *
@@ -1037,7 +1027,7 @@ class CallAnalyzer
                     $bounds_with_equality = array_filter(
                         $lower_bounds,
                         function ($lower_bound) {
-                            return !!$lower_bound->equality_bound_classlike;
+                            return (bool)$lower_bound->equality_bound_classlike;
                         }
                     );
 
@@ -1045,20 +1035,16 @@ class CallAnalyzer
                         continue;
                     }
 
-                    $equality_classlikes = [];
-                    $equality_types = [];
+                    $equality_types = array_unique(
+                        array_map(
+                            function ($bound_with_equality) {
+                                return $bound_with_equality->type->getId();
+                            },
+                            $bounds_with_equality
+                        )
+                    );
 
-                    foreach ($bounds_with_equality as $bound_with_equality) {
-                        $equality_classlikes[] = $bound_with_equality->equality_bound_classlike;
-                        $equality_types[] = $bound_with_equality->type->getId();
-                    }
-
-                    $equality_classlikes = array_unique($equality_classlikes);
-                    $equality_types = array_unique($equality_types);
-
-                    if (count($equality_classlikes) > 1
-                        || count($equality_types) > 1
-                    ) {
+                    if (count($equality_types) > 1) {
                         if (IssueBuffer::accepts(
                             new InvalidArgument(
                                 'Incompatible types found for ' . $template_name,

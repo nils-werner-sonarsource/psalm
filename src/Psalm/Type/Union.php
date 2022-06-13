@@ -26,7 +26,6 @@ use function implode;
 use function reset;
 use function sort;
 use function strpos;
-use function strval;
 
 class Union implements TypeNode
 {
@@ -80,7 +79,7 @@ class Union implements TypeNode
      *
      * @var ?string
      */
-    public $initialized_class = null;
+    public $initialized_class;
 
     /**
      * Whether or not the type has been checked yet
@@ -336,7 +335,7 @@ class Union implements TypeNode
                 $printed_int = true;
             }
 
-            $types[] = strval($type);
+            $types[] = (string)$type;
         }
 
         sort($types);
@@ -374,7 +373,7 @@ class Union implements TypeNode
                 $types[] = 'int';
                 $printed_int = true;
             } else {
-                $types[] = strval($type->getKey());
+                $types[] = $type->getKey();
             }
         }
 
@@ -390,7 +389,7 @@ class Union implements TypeNode
 
         $types = [];
         foreach ($this->types as $type) {
-            $types[] = strval($type->getId());
+            $types[] = $type->getId();
         }
         sort($types);
 
@@ -498,6 +497,14 @@ class Union implements TypeNode
             $nullable = true;
         }
 
+        $falsable = false;
+
+        if (isset($types['false']) && count($types) > 1) {
+            unset($types['false']);
+
+            $falsable = true;
+        }
+
         $php_types = [];
 
         foreach ($types as $atomic_type) {
@@ -514,6 +521,10 @@ class Union implements TypeNode
             }
 
             $php_types[] = $php_type;
+        }
+
+        if ($falsable) {
+            return ($nullable ? '?' : '') . implode('|', array_unique($php_types)) . '|false';
         }
 
         return ($nullable ? '?' : '') . implode('|', array_unique($php_types));
@@ -637,7 +648,7 @@ class Union implements TypeNode
 
     public function hasArrayAccessInterface(Codebase $codebase) : bool
     {
-        return !!array_filter(
+        return (bool)array_filter(
             $this->types,
             function ($type) use ($codebase) {
                 return $type->hasArrayAccessInterface($codebase);
@@ -801,7 +812,10 @@ class Union implements TypeNode
 
     public function hasInt(): bool
     {
-        return isset($this->types['int']) || isset($this->types['array-key']) || $this->literal_int_types;
+        return isset($this->types['int']) || isset($this->types['array-key']) || $this->literal_int_types
+            || array_filter($this->types, function (Atomic $type) {
+                return $type instanceof Type\Atomic\TIntRange;
+            });
     }
 
     public function hasPositiveInt(): bool
@@ -958,9 +972,156 @@ class Union implements TypeNode
         return count($this->types) === 1 && isset($this->types['false']);
     }
 
+    public function isAlwaysFalsy(): bool
+    {
+        foreach ($this->getAtomicTypes() as $atomic_type) {
+            if ($atomic_type instanceof Type\Atomic\TFalse) {
+                continue;
+            }
+
+            if ($atomic_type instanceof Type\Atomic\TLiteralInt && $atomic_type->value === 0) {
+                continue;
+            }
+
+            if ($atomic_type instanceof Type\Atomic\TLiteralFloat && $atomic_type->value === 0.0) {
+                continue;
+            }
+
+            if ($atomic_type instanceof Type\Atomic\TLiteralString &&
+                ($atomic_type->value === '' || $atomic_type->value === '0')
+            ) {
+                continue;
+            }
+
+            if ($atomic_type instanceof Type\Atomic\TNull) {
+                continue;
+            }
+
+            if ($atomic_type instanceof Type\Atomic\TEmptyMixed) {
+                continue;
+            }
+
+            if ($atomic_type instanceof Type\Atomic\TEmptyNumeric) {
+                continue;
+            }
+
+            if ($atomic_type instanceof Type\Atomic\TEmptyScalar) {
+                continue;
+            }
+
+            if ($atomic_type instanceof TTemplateParam && $atomic_type->as->isAlwaysFalsy()) {
+                continue;
+            }
+
+            if ($atomic_type instanceof Type\Atomic\TIntRange &&
+                $atomic_type->min_bound === 0 &&
+                $atomic_type->max_bound === 0
+            ) {
+                continue;
+            }
+
+            //we can't be sure the type is always falsy
+            return false;
+        }
+
+        return true;
+    }
+
     public function isTrue(): bool
     {
         return count($this->types) === 1 && isset($this->types['true']);
+    }
+
+    public function isAlwaysTruthy(): bool
+    {
+        if ($this->possibly_undefined || $this->possibly_undefined_from_try) {
+            return false;
+        }
+
+        foreach ($this->getAtomicTypes() as $atomic_type) {
+            if ($atomic_type instanceof Type\Atomic\TTrue) {
+                continue;
+            }
+
+            if ($atomic_type instanceof Type\Atomic\TLiteralInt && $atomic_type->value !== 0) {
+                continue;
+            }
+
+            if ($atomic_type instanceof Type\Atomic\TLiteralFloat && $atomic_type->value !== 0.0) {
+                continue;
+            }
+
+            if ($atomic_type instanceof Type\Atomic\TLiteralString &&
+                ($atomic_type->value !== '' && $atomic_type->value !== '0')
+            ) {
+                continue;
+            }
+
+            if ($atomic_type instanceof Type\Atomic\TNonFalsyString) {
+                continue;
+            }
+
+            if ($atomic_type instanceof Type\Atomic\TCallableString) {
+                continue;
+            }
+
+            if ($atomic_type instanceof Type\Atomic\TNonEmptyArray) {
+                continue;
+            }
+
+            if ($atomic_type instanceof Type\Atomic\TNonEmptyList) {
+                continue;
+            }
+
+            if ($atomic_type instanceof Type\Atomic\TObject) {
+                continue;
+            }
+
+            if ($atomic_type instanceof Type\Atomic\TNamedObject) {
+                continue;
+            }
+
+            if ($atomic_type instanceof Type\Atomic\TIntRange && !$atomic_type->contains(0)) {
+                continue;
+            }
+
+            if ($atomic_type instanceof Type\Atomic\TPositiveInt) {
+                continue;
+            }
+
+            if ($atomic_type instanceof Type\Atomic\TLiteralClassString) {
+                continue;
+            }
+
+            if ($atomic_type instanceof Type\Atomic\TClassString) {
+                continue;
+            }
+
+            if ($atomic_type instanceof Type\Atomic\TTraitString) {
+                continue;
+            }
+
+            if ($atomic_type instanceof Type\Atomic\TResource) {
+                continue;
+            }
+
+            if ($atomic_type instanceof Type\Atomic\TKeyedArray) {
+                foreach ($atomic_type->properties as $property) {
+                    if ($property->possibly_undefined === false) {
+                        continue 2;
+                    }
+                }
+            }
+
+            if ($atomic_type instanceof TTemplateParam && $atomic_type->as->isAlwaysTruthy()) {
+                continue;
+            }
+
+            //we can't be sure the type is always truthy
+            return false;
+        }
+
+        return true;
     }
 
     public function isVoid(): bool
@@ -1475,6 +1636,21 @@ class Union implements TypeNode
     }
 
     /**
+     * @return array<string, Type\Atomic\TIntRange>
+     */
+    public function getRangeInts(): array
+    {
+        $ranges = [];
+        foreach ($this->getAtomicTypes() as $atomic) {
+            if ($atomic instanceof Type\Atomic\TIntRange) {
+                $ranges[$atomic->getKey()] = $atomic;
+            }
+        }
+
+        return $ranges;
+    }
+
+    /**
      * @return array<string, TLiteralFloat>
      */
     public function getLiteralFloats(): array
@@ -1488,5 +1664,37 @@ class Union implements TypeNode
     public function getChildNodes() : array
     {
         return $this->types;
+    }
+
+    /**
+     * @return bool true if this is a float literal with only one possible value
+     */
+    public function isSingleFloatLiteral(): bool
+    {
+        return count($this->types) === 1 && count($this->literal_float_types) === 1;
+    }
+
+    /**
+     * @throws \InvalidArgumentException if isSingleFloatLiteral is false
+     *
+     * @return TLiteralFloat the only float literal represented by this union type
+     */
+    public function getSingleFloatLiteral(): TLiteralFloat
+    {
+        if (count($this->types) !== 1 || count($this->literal_float_types) !== 1) {
+            throw new \InvalidArgumentException('Not a float literal');
+        }
+
+        return reset($this->literal_float_types);
+    }
+
+    public function hasLiteralFloat(): bool
+    {
+        return count($this->literal_float_types) > 0;
+    }
+
+    public function getSingleAtomic(): Atomic
+    {
+        return reset($this->types);
     }
 }

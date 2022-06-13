@@ -222,7 +222,7 @@ class FunctionCallReturnTypeFetcher
                 $fake_call_factory = new BuilderFactory();
 
                 if (strpos($proxy_call['fqn'], '::') !== false) {
-                    list($fqcn, $method) = explode('::', $proxy_call['fqn']);
+                    [$fqcn, $method] = explode('::', $proxy_call['fqn']);
                     $fake_call = $fake_call_factory->staticCall($fqcn, $method, $fake_call_arguments);
                 } else {
                     $fake_call = $fake_call_factory->funcCall($proxy_call['fqn'], $fake_call_arguments);
@@ -325,12 +325,27 @@ class FunctionCallReturnTypeFetcher
                                     ]);
                                 }
 
-                                if ($atomic_types['array'] instanceof Type\Atomic\TKeyedArray
-                                    && $atomic_types['array']->isNonEmpty()
-                                ) {
-                                    return new Type\Union([
-                                        new Type\Atomic\TLiteralInt(count($atomic_types['array']->properties))
-                                    ]);
+                                if ($atomic_types['array'] instanceof Type\Atomic\TKeyedArray) {
+                                    $min = 0;
+                                    $max = 0;
+                                    foreach ($atomic_types['array']->properties as $property) {
+                                        if (!$property->possibly_undefined) {
+                                            $min++;
+                                        }
+                                        $max++;
+                                    }
+
+                                    if ($atomic_types['array']->sealed) {
+                                        //the KeyedArray is sealed, we can use the min and max
+                                        if ($min === $max) {
+                                            return new Type\Union([new Type\Atomic\TLiteralInt($max)]);
+                                        }
+
+                                        return new Type\Union([new Type\Atomic\TIntRange($min, $max)]);
+                                    }
+
+                                    //the type is not sealed, we can only use the min
+                                    return new Type\Union([new Type\Atomic\TIntRange($min, null)]);
                                 }
 
                                 return new Type\Union([
@@ -466,15 +481,6 @@ class FunctionCallReturnTypeFetcher
                 ) {
                     $stmt_type->ignore_falsable_issues = true;
                 }
-        }
-
-        switch ($call_map_key) {
-            case 'array_replace':
-            case 'array_replace_recursive':
-                if ($codebase->config->ignore_internal_nullable_issues) {
-                    $stmt_type->ignore_nullable_issues = true;
-                }
-                break;
         }
 
         return $stmt_type;
@@ -707,7 +713,7 @@ class FunctionCallReturnTypeFetcher
             $next = $pattern[$i + 1] ?? null;
 
             if ($current === '\\') {
-                if ($next == null
+                if ($next === null
                     || $next === 'x'
                     || $next === 'u'
                 ) {

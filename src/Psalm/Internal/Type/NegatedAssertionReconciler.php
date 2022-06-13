@@ -3,6 +3,7 @@
 namespace Psalm\Internal\Type;
 
 use Psalm\CodeLocation;
+use Psalm\Exception\TypeParseTreeException;
 use Psalm\Internal\Analyzer\StatementsAnalyzer;
 use Psalm\Internal\Analyzer\TraitAnalyzer;
 use Psalm\Internal\Type\Comparator\AtomicTypeComparator;
@@ -47,7 +48,8 @@ class NegatedAssertionReconciler extends Reconciler
         bool $negated,
         ?CodeLocation $code_location,
         array $suppressed_issues,
-        int &$failed_reconciliation
+        int &$failed_reconciliation,
+        bool $inside_loop
     ): Type\Union {
         $is_equality = $is_strict_equality || $is_loose_equality;
 
@@ -151,11 +153,49 @@ class NegatedAssertionReconciler extends Reconciler
                 }
 
                 return Type::getNull();
-            } elseif ($assertion === 'array-key-exists') {
+            }
+
+            if ($assertion === 'array-key-exists') {
                 return Type::getEmpty();
-            } elseif (substr($assertion, 0, 9) === 'in-array-') {
+            }
+
+            if (strpos($assertion, 'in-array-') === 0) {
+                $assertion = substr($assertion, 9);
+                $new_var_type = null;
+                try {
+                    $new_var_type = Type::parseString($assertion);
+                } catch (TypeParseTreeException $e) {
+                }
+
+                if ($new_var_type) {
+                    $intersection = Type::intersectUnionTypes(
+                        $new_var_type,
+                        $existing_var_type,
+                        $statements_analyzer->getCodebase()
+                    );
+
+                    if ($intersection === null) {
+                        if ($key && $code_location) {
+                            self::triggerIssueForImpossible(
+                                $existing_var_type,
+                                $existing_var_type->getId(),
+                                $key,
+                                '!' . $assertion,
+                                true,
+                                $negated,
+                                $code_location,
+                                $suppressed_issues
+                            );
+                        }
+
+                        $failed_reconciliation = 2;
+                    }
+                }
+
                 return $existing_var_type;
-            } elseif (substr($assertion, 0, 14) === 'has-array-key-') {
+            }
+
+            if (strpos($assertion, 'has-array-key-') === 0) {
                 return $existing_var_type;
             }
         }
@@ -178,7 +218,8 @@ class NegatedAssertionReconciler extends Reconciler
                 $suppressed_issues,
                 $failed_reconciliation,
                 $is_equality,
-                $is_strict_equality
+                $is_strict_equality,
+                $inside_loop
             );
 
             if ($simple_negated_type) {
@@ -242,7 +283,7 @@ class NegatedAssertionReconciler extends Reconciler
         ) {
             $existing_var_type->removeType('array-key');
             $existing_var_type->addType(new TString);
-        } elseif (substr($assertion, 0, 9) === 'getclass-') {
+        } elseif (strpos($assertion, 'getclass-') === 0) {
             $assertion = substr($assertion, 9);
         } elseif (!$is_equality) {
             $codebase = $statements_analyzer->getCodebase();
@@ -421,7 +462,7 @@ class NegatedAssertionReconciler extends Reconciler
                 $scalar_var_type = Type::getFloat((float) $scalar_value);
             }
         } elseif ($scalar_type === 'enum') {
-            list($fq_enum_name, $case_name) = explode('::', substr($assertion, $bracket_pos + 1, -1));
+            [$fq_enum_name, $case_name] = explode('::', substr($assertion, $bracket_pos + 1, -1));
 
             foreach ($existing_var_type->getAtomicTypes() as $atomic_key => $atomic_type) {
                 if (get_class($atomic_type) === Type\Atomic\TNamedObject::class

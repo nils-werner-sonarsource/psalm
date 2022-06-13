@@ -24,8 +24,8 @@ class ArrayFunctionCallTest extends TestCase
                         }
                     );',
                 'assertions' => [
-                    '$d' => 'array{a?: int, b?: int}',
-                    '$e' => 'array<string, int|null>',
+                    '$d' => 'array{a?: int<0, 10>, b?: int<0, 10>}',
+                    '$e' => 'array<string, int<0, 10>|null>',
                 ],
             ],
             'arrayFilterAdvanced' => [
@@ -2169,6 +2169,20 @@ class ArrayFunctionCallTest extends TestCase
                         return array_merge($a, $b);
                     }',
                 'error_message' => 'LessSpecificReturnStatement - src' . DIRECTORY_SEPARATOR . 'somefile.php:9:32 - The type \'array{A: int|string}<string, string>\' is more general',
+            ],
+            'arrayWalkOverObject' => [
+                '<?php
+                    $o = new stdClass();
+                    array_walk($o, "var_dump");
+                ',
+                'error_message' => 'RawObjectIteration',
+            ],
+            'arrayWalkRecursiveOverObject' => [
+                '<?php
+                    $o = new stdClass();
+                    array_walk_recursive($o, "var_dump");
+                ',
+                'error_message' => 'RawObjectIteration',
             ],
         ];
     }

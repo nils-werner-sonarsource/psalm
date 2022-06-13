@@ -139,7 +139,7 @@ class IfAnalyzer
                     $if_scope->reasonable_clauses = Context::filterClauses(
                         $var_id,
                         $if_scope->reasonable_clauses,
-                        isset($if_context->vars_in_scope[$var_id]) ? $if_context->vars_in_scope[$var_id] : null,
+                        $if_context->vars_in_scope[$var_id] ?? null,
                         $statements_analyzer
                     );
                 }
@@ -312,12 +312,20 @@ class IfAnalyzer
                 if (!$post_if_context->collect_initializations
                     && !$post_if_context->collect_mutations
                     && $statements_analyzer->getFilePath() === $statements_analyzer->getRootFilePath()
-                    && (!(($parent_source = $statements_analyzer->getSource())
-                                instanceof \Psalm\Internal\Analyzer\FunctionLikeAnalyzer)
-                            || !$parent_source->getSource() instanceof \Psalm\Internal\Analyzer\TraitAnalyzer)
                 ) {
-                    $codebase = $statements_analyzer->getCodebase();
-                    $codebase->analyzer->decrementMixedCount($statements_analyzer->getFilePath());
+                    $parent_source = $statements_analyzer->getSource();
+
+                    $functionlike_storage = $parent_source instanceof \Psalm\Internal\Analyzer\FunctionLikeAnalyzer
+                        ? $parent_source->getFunctionLikeStorage($statements_analyzer)
+                        : null;
+
+                    if (!$functionlike_storage
+                            || (!$parent_source->getSource() instanceof \Psalm\Internal\Analyzer\TraitAnalyzer
+                                && !isset($functionlike_storage->param_lookup[substr($var_id, 1)]))
+                    ) {
+                        $codebase = $statements_analyzer->getCodebase();
+                        $codebase->analyzer->decrementMixedCount($statements_analyzer->getFilePath());
+                    }
                 }
 
                 IssueBuffer::remove(
@@ -343,7 +351,7 @@ class IfAnalyzer
         Context $post_if_context,
         array $assigned_in_conditional_var_ids
     ) : void {
-        // this filters out coercions to expeccted types in ArgumentAnalyzer
+        // this filters out coercions to expected types in ArgumentAnalyzer
         $assigned_in_conditional_var_ids = \array_filter($assigned_in_conditional_var_ids);
 
         if (!$assigned_in_conditional_var_ids) {
@@ -509,15 +517,11 @@ class IfAnalyzer
             }
 
             foreach ($possibly_redefined_vars as $var => $type) {
-                if (isset($if_scope->possibly_redefined_vars[$var])) {
-                    $if_scope->possibly_redefined_vars[$var] = Type::combineUnionTypes(
-                        $type,
-                        $if_scope->possibly_redefined_vars[$var],
-                        $codebase
-                    );
-                } else {
-                    $if_scope->possibly_redefined_vars[$var] = $type;
-                }
+                $if_scope->possibly_redefined_vars[$var] = Type::combineUnionTypes(
+                    $type,
+                    $if_scope->possibly_redefined_vars[$var] ?? null,
+                    $codebase
+                );
             }
         }
     }

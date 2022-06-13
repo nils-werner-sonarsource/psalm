@@ -53,15 +53,11 @@ class MissingMethodCallHandler
                     ) ?: Type::getMixed();
                 }
 
-                if (!$result->return_type) {
-                    $result->return_type = $return_type_candidate;
-                } else {
-                    $result->return_type = Type::combineUnionTypes(
-                        $return_type_candidate,
-                        $result->return_type,
-                        $codebase
-                    );
-                }
+                $result->return_type = Type::combineUnionTypes(
+                    $return_type_candidate,
+                    $result->return_type,
+                    $codebase
+                );
 
                 CallAnalyzer::checkMethodArgs(
                     $method_id,
@@ -122,19 +118,15 @@ class MissingMethodCallHandler
                     ) ?: Type::getMixed();
                 }
 
-                if (!$result->return_type) {
-                    $result->return_type = $return_type_candidate;
-                } else {
-                    $result->return_type = Type::combineUnionTypes(
-                        $return_type_candidate,
-                        $result->return_type,
-                        $codebase
-                    );
-                }
+                $result->return_type = Type::combineUnionTypes(
+                    $return_type_candidate,
+                    $result->return_type,
+                    $codebase
+                );
 
                 return null;
             }
-        } elseif ($all_intersection_return_type == null) {
+        } elseif ($all_intersection_return_type === null) {
             ArgumentsAnalyzer::analyze(
                 $statements_analyzer,
                 $stmt->args,
@@ -270,11 +262,7 @@ class MissingMethodCallHandler
                     $class_storage->final
                 );
 
-                if (!$result->return_type) {
-                    $result->return_type = $return_type_candidate;
-                } else {
-                    $result->return_type = Type::combineUnionTypes($return_type_candidate, $result->return_type);
-                }
+                $result->return_type = Type::combineUnionTypes($return_type_candidate, $result->return_type);
 
                 return;
             }
@@ -301,11 +289,7 @@ class MissingMethodCallHandler
                 $all_intersection_existent_method_ids
             );
 
-            if (!$result->return_type) {
-                $result->return_type = $all_intersection_return_type;
-            } else {
-                $result->return_type = Type::combineUnionTypes($all_intersection_return_type, $result->return_type);
-            }
+            $result->return_type = Type::combineUnionTypes($all_intersection_return_type, $result->return_type);
 
             return;
         }

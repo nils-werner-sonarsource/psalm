@@ -11,6 +11,7 @@ use Psalm\Exception\InvalidMethodOverrideException;
 use Psalm\Exception\TypeParseTreeException;
 use Psalm\Internal\Scanner\FileScanner;
 use Psalm\Internal\Scanner\FunctionDocblockComment;
+use Psalm\Internal\Type\Comparator\UnionTypeComparator;
 use Psalm\Internal\Type\TypeAlias;
 use Psalm\Internal\Type\TypeParser;
 use Psalm\Internal\Type\TypeTokenizer;
@@ -280,6 +281,22 @@ class FunctionLikeDocblockScanner
                 $type_aliases
             );
             $storage->self_out_type = $out_type;
+        }
+
+        if ($docblock_info->if_this_is
+            && $storage instanceof MethodStorage) {
+            $out_type = TypeParser::parseTokens(
+                TypeTokenizer::getFullyQualifiedTokens(
+                    $docblock_info->if_this_is['type'],
+                    $aliases,
+                    $function_template_types + $class_template_types,
+                    $type_aliases
+                ),
+                null,
+                $function_template_types + $class_template_types,
+                $type_aliases
+            );
+            $storage->if_this_is_type = $out_type;
         }
 
         foreach ($docblock_info->taint_sink_params as $taint_sink_param) {
@@ -616,7 +633,7 @@ class FunctionLikeDocblockScanner
             $param_name = $docblock_param['name'];
             $docblock_param_variadic = false;
 
-            if (substr($param_name, 0, 3) === '...') {
+            if (strpos($param_name, '...') === 0) {
                 $docblock_param_variadic = true;
                 $param_name = substr($param_name, 3);
             }
@@ -908,6 +925,12 @@ class FunctionLikeDocblockScanner
                     && !$storage->return_type->isNullable()
                     && !$storage->return_type->hasTemplate()
                     && !$storage->return_type->hasConditional()
+                    //don't add null to docblock type if it's not contained in signature type
+                    && UnionTypeComparator::isContainedBy(
+                        $codebase,
+                        $storage->return_type,
+                        $storage->signature_return_type
+                    )
                 ) {
                     $storage->return_type->addType(new Type\Atomic\TNull());
                 }
@@ -980,7 +1003,7 @@ class FunctionLikeDocblockScanner
 
                 if (isset($flow_parts[0]) && \strpos(trim($flow_parts[0]), 'proxy') === 0) {
                     $proxy_call = trim(substr($flow_parts[0], strlen('proxy')));
-                    list($fully_qualified_name, $source_param_string) = explode('(', $proxy_call, 2);
+                    [$fully_qualified_name, $source_param_string] = explode('(', $proxy_call, 2);
 
                     if (!empty($fully_qualified_name) && !empty($source_param_string)) {
                         $source_params = preg_split('/, ?/', substr($source_param_string, 0, -1)) ?: [];

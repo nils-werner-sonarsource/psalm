@@ -4,6 +4,10 @@ namespace Psalm;
 use Psalm\Internal\Analyzer\IssueData;
 
 use function array_filter;
+use function htmlspecialchars;
+
+use const ENT_QUOTES;
+use const ENT_XML1;
 
 abstract class Report
 {
@@ -13,6 +17,7 @@ abstract class Report
     public const TYPE_JSON = 'json';
     public const TYPE_JSON_SUMMARY = 'json-summary';
     public const TYPE_SONARQUBE = 'sonarqube';
+    public const TYPE_SONARCLOUD = 'sonarcloud';
     public const TYPE_EMACS = 'emacs';
     public const TYPE_XML = 'xml';
     public const TYPE_JUNIT = 'junit';
@@ -30,6 +35,7 @@ abstract class Report
         self::TYPE_JSON,
         self::TYPE_JSON_SUMMARY,
         self::TYPE_SONARQUBE,
+        self::TYPE_SONARCLOUD,
         self::TYPE_EMACS,
         self::TYPE_XML,
         self::TYPE_JUNIT,
@@ -97,6 +103,11 @@ abstract class Report
 
         $this->mixed_expression_count = $mixed_expression_count;
         $this->total_expression_count = $total_expression_count;
+    }
+
+    protected function xmlEncode(string $data): string
+    {
+        return htmlspecialchars($data, ENT_XML1 | ENT_QUOTES);
     }
 
     abstract public function create(): string;

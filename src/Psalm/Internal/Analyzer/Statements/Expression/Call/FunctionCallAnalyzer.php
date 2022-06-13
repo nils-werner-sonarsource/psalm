@@ -352,7 +352,7 @@ class FunctionCallAnalyzer extends CallAnalyzer
         PhpParser\Node\Name $function_name,
         Context $context,
         CodeLocation $code_location
-    ) {
+    ): FunctionCallInfo {
         $function_call_info = new FunctionCallInfo();
 
         $codebase = $statements_analyzer->getCodebase();
@@ -434,9 +434,9 @@ class FunctionCallAnalyzer extends CallAnalyzer
                     }
 
                     return $function_call_info;
-                } else {
-                    $function_call_info->function_exists = true;
                 }
+
+                $function_call_info->function_exists = true;
             }
         } else {
             $function_call_info->function_exists = true;
@@ -599,7 +599,7 @@ class FunctionCallAnalyzer extends CallAnalyzer
                     } else {
                         $statements_analyzer->node_data->setType(
                             $real_stmt,
-                            $var_type_part->return_type ?: Type::getMixed()
+                            $var_type_part->return_type ?? Type::getMixed()
                         );
                     }
 
@@ -819,14 +819,14 @@ class FunctionCallAnalyzer extends CallAnalyzer
             $statements_analyzer->node_data->setType(
                 $real_stmt,
                 Type::combineUnionTypes(
-                    $fake_method_call_type ?: Type::getMixed(),
+                    $fake_method_call_type ?? Type::getMixed(),
                     $stmt_type
                 )
             );
         } else {
             $statements_analyzer->node_data->setType(
                 $real_stmt,
-                $fake_method_call_type ?: Type::getMixed()
+                $fake_method_call_type ?? Type::getMixed()
             );
         }
     }
